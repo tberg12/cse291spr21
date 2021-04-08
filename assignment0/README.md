@@ -29,6 +29,8 @@ The `main.py` script accepts the following arguments:
 optional arguments:
   -h, --help            show this help message and exit
   --data DATA           location of the data corpus
+  --trainsize           Percent of total train data to use (0.0 < trainsize <= 1.0). 
+                        Defaults to full corpus.
   --model MODEL         type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU,
                         Transformer)
   --emsize EMSIZE       size of word embeddings
