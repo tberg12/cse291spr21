@@ -18,18 +18,21 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path):
+    def __init__(self, path, train_pct=1.0):
         self.dictionary = Dictionary()
-        self.train = self.tokenize(os.path.join(path, 'train.txt'))
+        self.train = self.tokenize(os.path.join(path, 'train.txt'), data_pct=train_pct)
         self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
         self.test = self.tokenize(os.path.join(path, 'test.txt'))
 
-    def tokenize(self, path):
+    def tokenize(self, path, data_pct=1.0):
         """Tokenizes a text file."""
         assert os.path.exists(path)
+        assert 0.0 < data_pct <= 1.0 
         # Add words to the dictionary
         with open(path, 'r', encoding="utf8") as f:
-            for line in f:
+            total_lines = [line.strip() for line in f]
+            lines = total_lines[:int(data_pct * len(total_lines))]
+            for line in lines:
                 words = line.split() + ['<eos>']
                 for word in words:
                     self.dictionary.add_word(word)
@@ -37,7 +40,9 @@ class Corpus(object):
         # Tokenize file content
         with open(path, 'r', encoding="utf8") as f:
             idss = []
-            for line in f:
+            total_lines = [line.strip() for line in f]
+            lines = total_lines[:int(data_pct * len(total_lines))]
+            for line in lines:
                 words = line.split() + ['<eos>']
                 ids = []
                 for word in words:
