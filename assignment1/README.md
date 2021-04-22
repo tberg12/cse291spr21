@@ -25,6 +25,14 @@ python -m spacy download en_core_web_sm
 python -m spacy download de_core_news_sm
 ```
 
+Or, if you're using CoLab:
+
+``` python
+import spacy.cli
+spacy.cli.download("de_core_news_sm")
+spacy.cli.download("en_core_web_sm")
+```
+
 
 ## Acknowledgements
 
