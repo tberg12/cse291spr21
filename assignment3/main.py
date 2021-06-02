@@ -154,24 +154,26 @@ def cky(scores, mask):
     p_s = scores.new_zeros(seq_len, seq_len, batch_size).long()
     p_l = scores.new_zeros(seq_len, seq_len, batch_size).long()
 
-    for d in range(1, seq_len):
-        n = seq_len - d
+    for d in range(2, seq_len + 1): # d = 2, 3, ..., seq_len
+        # define the offset variable for convience
+        offset = d - 1
+        n = seq_len - offset
         starts = p_s.new_tensor(range(n)).unsqueeze(0)
         # [batch_size, n]
-        s_label, p_label = scores.diagonal(d).max(0)
-        p_l.diagonal(d).copy_(p_label)
+        s_label, p_label = scores.diagonal(offset).max(0)
+        p_l.diagonal(offset).copy_(p_label)
 
-        if d == 1:
-            s.diagonal(d).copy_(s_label)
+        if d == 2:
+            s.diagonal(offset).copy_(s_label)
             continue
         # [n, w, batch_size]
-        s_span = stripe(s, n, d-1, (0, 1)) + stripe(s, n, d-1, (1, d), 0)
+        s_span = stripe(s, n, offset-1, (0, 1)) + stripe(s, n, offset-1, (1, offset), 0)
         # [batch_size, n, w]
         s_span = s_span.permute(2, 0, 1)
         # [batch_size, n]
         s_span, p_span = s_span.max(-1)
-        s.diagonal(d).copy_(s_span + s_label)
-        p_s.diagonal(d).copy_(p_span + starts + 1)
+        s.diagonal(offset).copy_(s_span + s_label)
+        p_s.diagonal(offset).copy_(p_span + starts + 1)
 
     def backtrack(p_s, p_l, i, j):
         if j == i + 1:
@@ -236,13 +238,15 @@ class CRFConstituency(nn.Module):
         # working in the log space, initial s with log(0) == -inf
         s = torch.full_like(scores[:, :, 0], float('-inf'))
 
-        for d in range(1, seq_len):
+        for d in range(2, seq_len + 1): # d = 2, 3, ..., seq_len
+            # define the offset variable for convience
+            offset = d - 1
             # n denotes the number of spans to iterate,
-            # from span (0, d) to span (n, n+d) given width d
-            i = seq_len - d
+            # from span (0, w) to span (n, n+w) given width w
+            n = seq_len - offset
             # diag_mask is used for ignoring the excess of each sentence
-            # [batch_size, seq_len]
-            diag_mask = mask.diagonal(d)
+            # [batch_size, n]
+            diag_mask = mask.diagonal(offset)
 
             ##### TODO   
             # if d == 1:
