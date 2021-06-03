@@ -155,7 +155,7 @@ def cky(scores, mask):
     p_l = scores.new_zeros(seq_len, seq_len, batch_size).long()
 
     for d in range(2, seq_len + 1): # d = 2, 3, ..., seq_len
-        # define the offset variable for convience
+        # define the offset variable for convenience
         offset = d - 1
         n = seq_len - offset
         starts = p_s.new_tensor(range(n)).unsqueeze(0)
@@ -166,9 +166,9 @@ def cky(scores, mask):
         if d == 2:
             s.diagonal(offset).copy_(s_label)
             continue
-        # [n, w, batch_size]
+        # [n, offset, batch_size]
         s_span = stripe(s, n, offset-1, (0, 1)) + stripe(s, n, offset-1, (1, offset), 0)
-        # [batch_size, n, w]
+        # [batch_size, n, offset]
         s_span = s_span.permute(2, 0, 1)
         # [batch_size, n]
         s_span, p_span = s_span.max(-1)
@@ -239,17 +239,17 @@ class CRFConstituency(nn.Module):
         s = torch.full_like(scores[:, :, 0], float('-inf'))
 
         for d in range(2, seq_len + 1): # d = 2, 3, ..., seq_len
-            # define the offset variable for convience
+            # define the offset variable for convenience
             offset = d - 1
             # n denotes the number of spans to iterate,
-            # from span (0, w) to span (n, n+w) given width w
+            # from span (0, offset) to span (n, n+offset) given the offset
             n = seq_len - offset
             # diag_mask is used for ignoring the excess of each sentence
             # [batch_size, n]
             diag_mask = mask.diagonal(offset)
 
             ##### TODO   
-            # if d == 1:
+            # if d == 2:
             #    DO something 
             # else:
             #    DO something
