@@ -7,7 +7,7 @@ In this assignment, you will only need to implement the inside algorithm of the 
 First, pull the assignment repo, and under the `assignment3` folder, run:
 
 ```sh
-pip install opt_einsum graphviz
+pip install opt_einsum graphviz stanza
 python main.py
 ```
 

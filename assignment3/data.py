@@ -4,9 +4,6 @@ from collections.abc import Iterable
 import os
 
 import nltk
-from supar.utils.logging import get_logger, progress_bar
-from supar.utils.tokenizer import Tokenizer
-
 
 def kmeans(x, k, max_it=32):
     r"""
@@ -79,6 +76,20 @@ def kmeans(x, k, max_it=32):
     clusters = [torch.where(y.eq(i))[0].tolist() for i in assigned]
 
     return centroids, clusters
+
+
+class Tokenizer:
+  
+    def __init__(self, lang='en'):
+        import stanza
+        try:
+            self.pipeline = stanza.Pipeline(lang=lang, processors='tokenize', verbose=False, tokenize_no_ssplit=True)
+        except Exception:
+            stanza.download(lang=lang, resources_url='stanford')
+            self.pipeline = stanza.Pipeline(lang=lang, processors='tokenize', verbose=False, tokenize_no_ssplit=True)
+
+    def __call__(self, text):
+        return [i.text for i in self.pipeline(text).sentences[0].tokens]
 
 
 class Sampler(torch.utils.data.Sampler):
@@ -934,7 +945,7 @@ class Tree(Transform):
             trees = [self.totree(i, self.root) for i in data]
 
         i, sentences = 0, []
-        for tree in progress_bar(trees):
+        for tree in trees:
             sentences.append(TreeSentence(self, tree))
             i += 1
         if max_len is not None:
