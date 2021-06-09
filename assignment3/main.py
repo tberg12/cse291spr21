@@ -9,6 +9,8 @@ from torch.optim import Adam
 from data import Dataset, Tree, Field, RawField, ChartField
 import argparse
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+from node import Node, draw_tree
+
 
 class Metric(object):
   
@@ -508,6 +510,29 @@ def train(model, traindata, devdata, optimizer):
         print(f"{'dev:':5} {best_metric}")
         print(f"{elapsed}s elapsed, {elapsed / epoch}s/epoch")
 
+def convert_to_viz_tree(tree, sen):
+    tree = sorted(tree, key=lambda x: x[1]-x[0])
+    seg_dict = {}
+
+    # initialize words
+    for i in range(len(sen)):
+        seg_dict[(i, i+1)] = Node(word=sen[i])
+
+    for left, right, label in tree:
+        new_node = Node(tag=label)
+        new_left = left
+        while new_left < right:
+            for i in range(new_left+1, right+1):
+                if (new_left, i) in seg_dict:
+                    new_node.add_child(seg_dict[(new_left, i)])
+                    seg_dict.pop((new_left, i))
+                    new_left = i
+                    break
+            
+        seg_dict[(left, right)] = new_node
+    return new_node
+
+
 @torch.no_grad()
 def evaluate(model, loader):
 
@@ -529,6 +554,15 @@ def evaluate(model, loader):
         preds = [Tree.build(tree, [(i, j, CHART.vocab[label]) for i, j, label in chart])
                     for tree, chart in zip(trees, chart_preds)]
         total_loss += loss.item()
+
+        if args.draw_pred: ### draw trees here
+            filter_delete = lambda x: [it for it in x if it not in args.delete]
+            trees_fact = [Tree.factorize(tree, args.delete, args.equal) for tree in preds]
+            leaves = [filter_delete(tree.leaves()) for tree in trees]
+            t = convert_to_viz_tree(tree=trees_fact[0], sen=leaves[0])
+
+            draw_tree(t, res_path="./prediction")
+
         metric([Tree.factorize(tree, args.delete, args.equal) for tree in preds],
                 [Tree.factorize(tree, args.delete, args.equal) for tree in trees])
     total_loss /= len(loader)
@@ -540,18 +574,24 @@ def predict(model, loader):
     model.eval()
 
     preds = {'trees': [], 'probs': []}
-    for words, *feats, trees in loader:
+    for words, *feats, trees, charts in loader:
         word_mask = words.ne(args.pad_index)[:, 1:]
         mask = word_mask if len(words.shape) < 3 else word_mask.any(-1)
         mask = (mask.unsqueeze(1) & mask.unsqueeze(2)).triu_(1)
-        lens = mask[:, 0].sum(-1)
+        
         s_feat = model(words, feats)
-        s_span = model.crf(s_feat, mask, require_marginals=True)
-        chart_preds = model.decode(s_span, mask)
+        s_feat = model.crf(s_feat, mask, require_marginals=True)
+        chart_preds = model.decode(s_feat, mask)
         preds['trees'].extend([Tree.build(tree, [(i, j, CHART.vocab[label]) for i, j, label in chart])
                                 for tree, chart in zip(trees, chart_preds)])
-        if args.prob:
-            preds['probs'].extend([prob[:i-1, 1:i].cpu() for i, prob in zip(lens, s_span)])
+
+        if args.draw_pred: ### draw trees here
+            filter_delete = lambda x: [it for it in x if it not in args.delete]
+            trees_fact = [Tree.factorize(tree, args.delete, args.equal) for tree in preds['trees']]
+            leaves = [filter_delete(tree.leaves()) for tree in trees]
+            t = convert_to_viz_tree(tree=trees_fact[0], sen=leaves[0])
+
+            draw_tree(t, res_path="./prediction")
 
     return preds
 
@@ -578,6 +618,7 @@ if __name__ == "__main__":
     p.add_argument('--eps', default=1e-12, type=float, help='learning rate, eps')
     p.add_argument('--weight-decay', default=1e-5, type=float, help='learning rate, weight decay')
     p.add_argument('--clip', default=5., type=float, help='gradient clipping')
+    p.add_argument('--draw_pred', default=False, type=bool, help='visualize prediction')
 
 
     args = p.parse_args()
@@ -629,3 +670,5 @@ if __name__ == "__main__":
     optimizer = Adam(model.parameters(), args.lr, (args.mu, args.nu), args.eps, args.weight_decay)
     train(model, traindata, devdata, optimizer)
     evaluate(model, testdata.loader)
+
+    predict(model, testdata.loader)
